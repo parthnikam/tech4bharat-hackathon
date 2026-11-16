@@ -32,12 +32,12 @@ function extractLocation(transcript: string) {
     if (location && location.split(/\s+/).length <= 5) return location.replace(/[.?!]+$/, "");
   }
 
-  const indic = transcript.match(/([\p{L}\p{M}]+(?:[\s-]+[\p{L}\p{M}]+){0,3})\s+(?:में|जवळ|இல்|ನಲ್ಲಿ|లో|এ)/iu)?.[1];
+  const indic = transcript.match(/([\p{L}\p{M}]+)\s+(?:में|जवळ|இல்|ನಲ್ಲಿ|లో|এ)/iu)?.[1];
   return indic?.trim() ?? "";
 }
 
 function extractPay(transcript: string) {
-  const payPattern = /(?:₹|rs\.?|rupees?|रुपये|रु\.?|pay|salary|wage|paid|वेतन|मजदूरी|पगार|दिहाड़ी)\s*(?:is|of|around|लगभग|करीब)?\s*([\d,]+)(?:\s*(?:-|to|से|तक)\s*(?:₹|rs\.?|rupees?)?\s*([\d,]+))?/iu;
+  const payPattern = /(?:₹|rs\.?|rupees?|रुपये|रु\.?|pay|salary|wage|paid|वेतन|मजदूरी|पगार|दिहाड़ी)\s*(?:is|of|around|लगभग|करीब)?\s*([\d,]+)(?:\s*(?:[-\u2013\u2014]|to|से|तक)\s*(?:₹|rs\.?|rupees?)?\s*([\d,]+))?/iu;
   const match = transcript.match(payPattern);
   if (!match) return {};
   const first = Number(match[1].replace(/,/g, ""));
@@ -53,10 +53,12 @@ export function parseJobVoice(transcript: string, current: JobVoiceValues): JobV
   const daily = /(?:\b(?:per day|daily|day wage)\b|दैनिक|रोज़|प्रतिदिन|தினசரி|ದಿನಗೂಲಿ|రోజువారీ|প্রতিদিন)/iu.test(normalized);
   const seasonal = /(?:\b(?:seasonal|temporary)\b|मौसमी|சீசன்|ಋತುಮಾನ|సీజనల్|মৌসুমি)/iu.test(normalized);
   const partTime = /(?:\bpart[- ]?time\b|अंशकालिक|பகுதி நேரம்|ಅರೆಕಾಲಿಕ|పార్ట్ టైమ్|খণ্ডকালীন)/iu.test(normalized);
-  const skillPhrase = transcript.match(/(?:skills?(?: needed|required)?|must know|experience in|कौशल|कुशलता|திறன்கள்|ಕೌಶಲ್ಯ|నైపుణ్యాలు|দক্ষতা)\s*(?:are|is|हैं|है|:|-)?\s*([^,.;!?]{2,100})/iu)?.[1];
+  const fullTime = /\b(?:full[- ]?time|permanent)\b/iu.test(normalized);
+  const skillPhrase = transcript.match(/(?:skills?(?: needed|required)?|must know|experience in|कौशल|कुशलता|திறன்கள்|ಕೌಶಲ್ಯ|నైపుణ్యాలు|দক্ষতা)\s*(?:are|is|हैं|है|:|-)?\s*([^.;!?।]{2,160})/iu)?.[1];
   const cleanedSkills = skillPhrase
     ?.split(/\b(?:pay|salary|wage|location|hours|schedule|work|per day|per month)\b|₹|वेतन|पगार|स्थान|वेतन/iu)[0]
-    ?.trim();
+    ?.trim()
+    .replace(/[,;]+$/, "");
   const employerName = transcript.match(/(?:business|employer|company|shop|farm)(?:\s+name)?\s+(?:is|called|:)\s*([^,.;!?]{2,60})/iu)?.[1]
     ?.split(/\b(?:need|hiring|looking for|job|work|location|pay|salary|wage)\b|₹/iu)[0]
     ?.trim();
@@ -69,7 +71,7 @@ export function parseJobVoice(transcript: string, current: JobVoiceValues): JobV
     location: extractLocation(transcript) || current.location,
     ...pay,
     payPeriod: daily ? "day" : current.payPeriod,
-    workType: seasonal ? "Seasonal" : partTime ? "Part-time" : current.workType,
+    workType: seasonal ? "Seasonal" : partTime ? "Part-time" : fullTime ? "Full-time" : current.workType,
     description: transcript,
     requiredSkills: cleanedSkills || current.requiredSkills
   };

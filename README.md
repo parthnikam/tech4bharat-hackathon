@@ -278,7 +278,7 @@ The prototype uses Node.js 24+, React with Vite, an Express API, and a local SQL
 
 `npm run build` checks TypeScript and creates the production frontend. `npm start` serves the built app and API on `http://127.0.0.1:3100`. SQLite data is stored in `data/kaam-saathi.sqlite` by default; change `SQLITE_PATH` in `.env` to use a different local file.
 
-The app has worker and recruiter views, consent-based sample applications, a profile form, job posting with pending review, and Sarvam speech-to-text and text-to-speech routes. Sample listings are explicitly marked and are not real vacancies. New employer posts stay hidden from workers until reviewed. The voice interface uses the chosen language for Sarvam voice requests; the rest of this wireframe is currently in English.
+The app has worker and recruiter views, consent-based sample applications, a profile form, job posting with pending review, and Sarvam speech-to-text and text-to-speech routes. Workers can speak a job search and the app automatically stops after a short pause, transcribes it, and filters matching jobs without another tap. Recruiters can dictate job details in the selected language; the transcript is added to the description, and recognizable job type, location, pay, schedule, skills, and employer-name details are prefilled where possible. Recruiters should review and correct every field before submitting. Sample listings are explicitly marked and are not real vacancies. New employer posts stay hidden from workers until reviewed. The voice interface uses the chosen language for Sarvam voice requests; the rest of this wireframe is currently in English.
 
 ### Sarvam MCP for VS Code
 

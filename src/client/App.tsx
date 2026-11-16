@@ -5,14 +5,11 @@ import {
   BriefcaseBusiness,
   Check,
   ChevronDown,
-  CircleHelp,
   ClipboardList,
   Clock3,
   FileCheck2,
-  Filter,
   Handshake,
   MapPin,
-  Menu,
   Mic,
   Plus,
   Search,
@@ -20,11 +17,11 @@ import {
   Sparkles,
   UserRound,
   UsersRound,
-  Volume2,
   X
 } from "lucide-react";
 import { api, getWorkerId, type Application, type Job, type Profile } from "./api.ts";
 import { parseJobVoice, type JobVoiceValues } from "./job-voice.ts";
+import { stopAfterSpeech } from "./voice-recording.ts";
 
 type Role = "worker" | "recruiter";
 type Language = "en-IN" | "hi-IN" | "mr-IN" | "ta-IN" | "bn-IN" | "kn-IN" | "te-IN";
@@ -52,13 +49,13 @@ const languageNames: Record<Language, string> = {
 
 const workerNav: { id: Page; label: string; icon: typeof BriefcaseBusiness }[] = [
   { id: "explore", label: "Find work", icon: Search },
-  { id: "applications", label: "My applications", icon: ClipboardList },
-  { id: "profile", label: "My profile", icon: UserRound }
+  { id: "applications", label: "Applied", icon: ClipboardList },
+  { id: "profile", label: "Profile", icon: UserRound }
 ];
 
 const recruiterNav: { id: Page; label: string; icon: typeof BriefcaseBusiness }[] = [
-  { id: "overview", label: "Overview", icon: BriefcaseBusiness },
-  { id: "jobs", label: "Jobs & candidates", icon: UsersRound }
+  { id: "overview", label: "Home", icon: BriefcaseBusiness },
+  { id: "jobs", label: "My jobs", icon: UsersRound }
 ];
 
 const initialProfile = {
@@ -101,7 +98,6 @@ function App() {
   const [notice, setNotice] = useState("");
   const [showJobForm, setShowJobForm] = useState(false);
   const [applyingTo, setApplyingTo] = useState<Job | null>(null);
-  const [menuOpen, setMenuOpen] = useState(false);
 
   const refreshJobs = useCallback(async () => {
     const path = role === "recruiter" ? "/api/jobs?view=recruiter" : "/api/jobs";
@@ -149,13 +145,11 @@ function App() {
   function switchRole(nextRole: Role) {
     setRole(nextRole);
     setPage(nextRole === "worker" ? "explore" : "overview");
-    setMenuOpen(false);
     setError("");
   }
 
   function showPage(nextPage: Page) {
     setPage(nextPage);
-    setMenuOpen(false);
     setError("");
   }
 
@@ -241,10 +235,6 @@ function App() {
             </select>
             <ChevronDown size={14} aria-hidden="true" />
           </label>
-          <button className="help-button" onClick={() => setNotice("Need help? Ask a trusted local partner to use this app with you.")}>
-            <CircleHelp size={17} />
-            <span>Help</span>
-          </button>
           <button className="avatar" onClick={() => showPage(role === "worker" ? "profile" : "overview")} aria-label="Open account">
             {role === "worker" ? <UserRound size={17} /> : <BriefcaseBusiness size={17} />}
           </button>
@@ -253,7 +243,7 @@ function App() {
 
       <div className="role-switch" role="tablist" aria-label="Choose your workspace">
         <button className={role === "worker" ? "selected" : ""} onClick={() => switchRole("worker")} role="tab" aria-selected={role === "worker"}>
-          <UserRound size={16} /> I’m looking for work
+          <UserRound size={16} /> I need work
         </button>
         <button className={role === "recruiter" ? "selected" : ""} onClick={() => switchRole("recruiter")} role="tab" aria-selected={role === "recruiter"}>
           <BriefcaseBusiness size={16} /> I’m hiring
@@ -261,42 +251,20 @@ function App() {
       </div>
 
       <div className="workspace">
-        <aside className={`sidebar ${menuOpen ? "sidebar-open" : ""}`}>
-          <div className="sidebar-heading">{role === "worker" ? "YOUR WORKSPACE" : "EMPLOYER SPACE"}</div>
-          <nav aria-label="Main navigation">
-            {nav.map(({ id, label, icon: Icon }) => (
-              <button key={id} className={`nav-item ${page === id ? "active" : ""}`} onClick={() => showPage(id)}>
-                <Icon size={18} />
-                <span>{label}</span>
-                {id === "applications" && applications.length > 0 && role === "worker" &&
-                  <span className="nav-count">{applications.length}</span>}
-                {id === "jobs" && pendingCount > 0 && role === "recruiter" &&
-                  <span className="nav-count">{pendingCount}</span>}
-              </button>
-            ))}
-          </nav>
-          {role === "worker" ? (
-            <div className="trust-note">
-              <span className="trust-icon"><ShieldCheck size={18} /></span>
-              <div><strong>Your details stay yours</strong><p>We ask before sharing your contact details with an employer.</p></div>
-            </div>
-          ) : (
-            <div className="trust-note">
-              <span className="trust-icon"><FileCheck2 size={18} /></span>
-              <div><strong>Checked before listing</strong><p>New jobs stay private until required details are reviewed.</p></div>
-            </div>
-          )}
-          <div className="sidebar-bottom">
-            <div className="offline-indicator"><span /> Saved on this device</div>
-            <span className="prototype-label">LOCAL PROTOTYPE</span>
-          </div>
-        </aside>
+        <nav className="workspace-nav" aria-label="Main navigation">
+          {nav.map(({ id, label, icon: Icon }) => (
+            <button key={id} className={page === id ? "active" : ""} onClick={() => showPage(id)}>
+              <Icon size={19} />
+              <span>{label}</span>
+              {id === "applications" && applications.length > 0 && role === "worker" &&
+                <span className="nav-count">{applications.length}</span>}
+              {id === "jobs" && pendingCount > 0 && role === "recruiter" &&
+                <span className="nav-count">{pendingCount}</span>}
+            </button>
+          ))}
+        </nav>
 
         <main className="main-content">
-          <button className="mobile-menu" onClick={() => setMenuOpen(!menuOpen)} aria-expanded={menuOpen}>
-            {menuOpen ? <X size={18} /> : <Menu size={18} />}
-            <span>{menuOpen ? "Close menu" : "Menu"}</span>
-          </button>
           {error && <div className="alert alert-error" role="alert">{error}<button onClick={() => setError("")} aria-label="Dismiss error"><X size={16} /></button></div>}
           {notice && <div className="alert alert-success" role="status">{notice}<button onClick={() => setNotice("")} aria-label="Dismiss notice"><X size={16} /></button></div>}
           {loading ? <LoadingState /> : (
@@ -339,17 +307,6 @@ function App() {
           )}
         </main>
       </div>
-
-      <nav className="mobile-bottom-nav" aria-label="Mobile navigation">
-        {nav.map(({ id, label, icon: Icon }) => (
-          <button key={id} className={page === id ? "active" : ""} onClick={() => showPage(id)}>
-            <Icon size={19} /><span>{label}</span>
-          </button>
-        ))}
-        {role === "recruiter" && (
-          <button onClick={() => setShowJobForm(true)}><Plus size={19} /><span>Post job</span></button>
-        )}
-      </nav>
 
       {showJobForm && <JobForm language={language} onClose={() => setShowJobForm(false)} onSubmit={submitJob} />}
       {applyingTo && (
@@ -399,15 +356,19 @@ function WorkerExplore({ jobs, query, setQuery, profile, language, onApply }: {
   const [voiceBusy, setVoiceBusy] = useState(false);
   const [voiceError, setVoiceError] = useState("");
   const [voiceText, setVoiceText] = useState("");
-  const [speaking, setSpeaking] = useState(false);
   const recorder = useRef<MediaRecorder | null>(null);
   const chunks = useRef<Blob[]>([]);
   const stream = useRef<MediaStream | null>(null);
   const recordingTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const silenceCleanup = useRef<(() => void) | null>(null);
 
   useEffect(() => () => {
     if (recordingTimeout.current) clearTimeout(recordingTimeout.current);
-    recorder.current?.stop();
+    silenceCleanup.current?.();
+    if (recorder.current?.state === "recording") {
+      recorder.current.onstop = null;
+      recorder.current.stop();
+    }
     stream.current?.getTracks().forEach((track) => track.stop());
   }, []);
 
@@ -426,6 +387,9 @@ function WorkerExplore({ jobs, query, setQuery, profile, language, onApply }: {
         if (event.data.size) chunks.current.push(event.data);
       };
       instance.onstop = async () => {
+        if (recordingTimeout.current) clearTimeout(recordingTimeout.current);
+        silenceCleanup.current?.();
+        silenceCleanup.current = null;
         currentStream.getTracks().forEach((track) => track.stop());
         setRecording(false);
         const audio = new Blob(chunks.current, { type: instance.mimeType || "audio/webm" });
@@ -449,67 +413,53 @@ function WorkerExplore({ jobs, query, setQuery, profile, language, onApply }: {
       };
       recorder.current = instance;
       instance.start();
+      setRecording(true);
+      silenceCleanup.current = await stopAfterSpeech(currentStream, () => {
+        if (instance.state === "recording") instance.stop();
+      });
       recordingTimeout.current = setTimeout(() => {
         if (instance.state === "recording") instance.stop();
       }, 15000);
-      setRecording(true);
-    } catch {
-      setVoiceError("Microphone access was not allowed. You can search by typing instead.");
-    }
-  }
-
-  function stopRecording() {
-    if (recordingTimeout.current) clearTimeout(recordingTimeout.current);
-    if (recorder.current?.state === "recording") recorder.current.stop();
-  }
-
-  async function hearPrompt() {
-    setVoiceError("");
-    setSpeaking(true);
-    try {
-      const result = await api<{ audio: string; mimeType: string }>("/api/voice/speak", {
-        method: "POST",
-        body: JSON.stringify({
-          text: "Tell us what kind of work you are looking for.",
-          languageCode: language
-        })
-      });
-      const player = new Audio(`data:${result.mimeType};base64,${result.audio}`);
-      await player.play();
     } catch (cause) {
-      setVoiceError(cause instanceof Error ? cause.message : "We could not play the voice prompt.");
-    } finally {
-      setSpeaking(false);
+      if (recordingTimeout.current) clearTimeout(recordingTimeout.current);
+      silenceCleanup.current?.();
+      silenceCleanup.current = null;
+      if (recorder.current?.state === "recording") {
+        recorder.current.onstop = null;
+        recorder.current.stop();
+      }
+      stream.current?.getTracks().forEach((track) => track.stop());
+      setRecording(false);
+      setVoiceError(cause instanceof Error && cause.name === "NotAllowedError"
+        ? "Microphone access was not allowed. You can search by typing instead."
+        : cause instanceof Error ? cause.message : "We could not start voice search. You can search by typing instead.");
     }
   }
 
   return (
     <>
       <PageIntro
-        eyebrow="A better way to find local work"
-        title={profile?.name ? `Namaste, ${profile.name.split(" ")[0]}` : "Work that fits your life"}
-        description="Find clear, nearby opportunities. Take your time—your details are shared only with your permission."
+        eyebrow={profile?.name ? `NAMASTE, ${profile.name.split(" ")[0].toLocaleUpperCase()}` : "READY TO FIND WORK?"}
+        title="Jobs near you"
+        description="Speak. Find a job nearby."
       />
       <section className="voice-panel" aria-label="Voice job search">
         <div className="voice-copy">
-          <span className="voice-kicker"><Sparkles size={14} /> START WITH YOUR VOICE</span>
-          <h2>Tell us what kind of work you’re looking for.</h2>
-          <p>Speak naturally in {languageNames[language]}. We’ll show the words so you can check them.</p>
+          <span className="voice-kicker"><Sparkles size={16} /> LET’S FIND WORK</span>
+          <h2>What work do you want?</h2>
+          <p>Speak in {languageNames[language]}. Pause when you’re done.</p>
           <div className="voice-actions">
-            <button className="button button-outline voice-listen" onClick={hearPrompt} disabled={speaking}>
-              <Volume2 size={16} /> {speaking ? "Preparing voice…" : "Hear the prompt"}
-            </button>
             {!recording ? (
               <button className="button button-dark" onClick={startRecording} disabled={voiceBusy}>
                 {voiceBusy ? <span className="mini-loader" /> : <Mic size={17} />}
-                {voiceBusy ? "Listening to your note…" : "Speak to search"}
+                {voiceBusy ? "Finding jobs…" : "Speak"}
               </button>
             ) : (
-              <button className="button button-recording" onClick={stopRecording}>
-                <span className="record-dot" /> Stop recording
-              </button>
+              <span className="button button-recording" role="status">
+                <span className="record-dot" /> Listening · pause to search
+              </span>
             )}
-            <span className="voice-privacy"><ShieldCheck size={14} /> Recording sent for transcription only</span>
+            <span className="voice-privacy"><ShieldCheck size={14} /> Sent for transcription</span>
           </div>
         </div>
         <div className="voice-illustration" aria-hidden="true">
@@ -520,16 +470,14 @@ function WorkerExplore({ jobs, query, setQuery, profile, language, onApply }: {
         </div>
         {(voiceError || voiceText) && (
           <div className={`transcript-note ${voiceError ? "has-error" : ""}`}>
-            {voiceError || <>We heard: <strong>“{voiceText}”</strong> <span>Change the search if it isn’t right.</span></>}
+            {voiceError || <>Searching for: <strong>“{voiceText}”</strong></>}
           </div>
         )}
       </section>
 
       <div className="section-heading jobs-heading">
         <div>
-          <div className="eyebrow">YOUR NEXT STEP</div>
-          <h2>Work near you</h2>
-          <p>Pay and location are shown upfront. Sample listings are clearly marked.</p>
+          <h2>Jobs near you</h2>
         </div>
         <span className="result-count">{jobs.length} {jobs.length === 1 ? "opportunity" : "opportunities"}</span>
       </div>
@@ -537,10 +485,9 @@ function WorkerExplore({ jobs, query, setQuery, profile, language, onApply }: {
       <div className="search-row">
         <label className="search-box">
           <Search size={18} />
-          <input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Try “farm work” or a town name" aria-label="Search jobs" />
+          <input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Job or town" aria-label="Search jobs" />
           {query && <button type="button" aria-label="Clear search" onClick={() => setQuery("")}><X size={16} /></button>}
         </label>
-        <button className="filter-button" onClick={() => setQuery(query ? "" : "Seasonal")} aria-label="Toggle seasonal filter"><Filter size={17} /><span>Seasonal</span></button>
       </div>
 
       {jobs.length === 0 ? (
@@ -553,7 +500,7 @@ function WorkerExplore({ jobs, query, setQuery, profile, language, onApply }: {
 
       <div className="safety-strip">
         <ShieldCheck size={19} />
-      <p><strong>A quick safety reminder</strong> — Never pay a fee to apply for a job. <span>If a listing asks for money, stop and tell a trusted local partner.</span></p>
+      <p><strong>Stay safe.</strong> Never pay to apply for a job.</p>
       </div>
     </>
   );
@@ -820,10 +767,15 @@ function JobForm({ language, onClose, onSubmit }: {
   const chunks = useRef<Blob[]>([]);
   const stream = useRef<MediaStream | null>(null);
   const recordingTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const silenceCleanup = useRef<(() => void) | null>(null);
 
   useEffect(() => () => {
     if (recordingTimeout.current) clearTimeout(recordingTimeout.current);
-    recorder.current?.stop();
+    silenceCleanup.current?.();
+    if (recorder.current?.state === "recording") {
+      recorder.current.onstop = null;
+      recorder.current.stop();
+    }
     stream.current?.getTracks().forEach((track) => track.stop());
   }, []);
 
@@ -853,6 +805,9 @@ function JobForm({ language, onClose, onSubmit }: {
         if (event.data.size) chunks.current.push(event.data);
       };
       instance.onstop = async () => {
+        if (recordingTimeout.current) clearTimeout(recordingTimeout.current);
+        silenceCleanup.current?.();
+        silenceCleanup.current = null;
         currentStream.getTracks().forEach((track) => track.stop());
         setRecording(false);
         const audio = new Blob(chunks.current, { type: instance.mimeType || "audio/webm" });
@@ -876,18 +831,27 @@ function JobForm({ language, onClose, onSubmit }: {
       };
       recorder.current = instance;
       instance.start();
+      setRecording(true);
+      silenceCleanup.current = await stopAfterSpeech(currentStream, () => {
+        if (instance.state === "recording") instance.stop();
+      });
       recordingTimeout.current = setTimeout(() => {
         if (instance.state === "recording") instance.stop();
       }, 30000);
-      setRecording(true);
-    } catch {
-      setVoiceError("Microphone access was not allowed. You can fill in the form instead.");
+    } catch (cause) {
+      if (recordingTimeout.current) clearTimeout(recordingTimeout.current);
+      silenceCleanup.current?.();
+      silenceCleanup.current = null;
+      if (recorder.current?.state === "recording") {
+        recorder.current.onstop = null;
+        recorder.current.stop();
+      }
+      stream.current?.getTracks().forEach((track) => track.stop());
+      setRecording(false);
+      setVoiceError(cause instanceof Error && cause.name === "NotAllowedError"
+        ? "Microphone access was not allowed. You can fill in the form instead."
+        : cause instanceof Error ? cause.message : "We could not start recording. You can fill in the form instead.");
     }
-  }
-
-  function stopRecording() {
-    if (recordingTimeout.current) clearTimeout(recordingTimeout.current);
-    if (recorder.current?.state === "recording") recorder.current.stop();
   }
 
   return (
@@ -906,9 +870,9 @@ function JobForm({ language, onClose, onSubmit }: {
               {voiceBusy ? "Transcribing…" : voiceText ? "Record again" : "Speak job details"}
             </button>
           ) : (
-            <button type="button" className="button button-recording" onClick={stopRecording}>
-              <span className="record-dot" /> Stop recording
-            </button>
+            <span className="button button-recording" role="status">
+              <span className="record-dot" /> Listening · pause when done
+            </span>
           )}
           {voiceError && <p className="job-voice-feedback has-error" role="alert">{voiceError}</p>}
           {voiceText && <p className="job-voice-feedback" role="status">Heard: “{voiceText}”</p>}
@@ -926,7 +890,7 @@ function JobForm({ language, onClose, onSubmit }: {
             <label className="field field-wide"><span>What will the worker do?</span><textarea value={values.description} onChange={(event) => update("description", event.target.value)} placeholder="Describe the day-to-day work and any important conditions." rows={3} required maxLength={1200} /></label>
           </div>
           <div className="listing-review-note"><ShieldCheck size={17} /><p><strong>Before it goes live:</strong> we’ll check the pay, location, and job details. No fees can be charged to workers to apply.</p></div>
-          <footer className="modal-footer"><button type="button" className="button button-outline" onClick={onClose}>Cancel</button><button className="button button-primary" disabled={saving}>{saving ? "Sending…" : "Submit for review"} <ArrowUpRight size={15} /></button></footer>
+          <footer className="modal-footer"><button type="button" className="button button-outline" onClick={onClose}>Cancel</button><button className="button button-primary" disabled={saving || recording || voiceBusy}>{saving ? "Sending…" : "Submit for review"} <ArrowUpRight size={15} /></button></footer>
         </form>
       </section>
     </div>
