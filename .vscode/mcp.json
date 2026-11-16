@@ -1,0 +1,9 @@
+{
+  "servers": {
+    "sarvam": {
+      "type": "stdio",
+      "command": "node",
+      "args": ["${workspaceFolder}/scripts/sarvam-mcp.mjs"]
+    }
+  }
+}
